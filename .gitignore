@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.python-version
+
+# Data & training artifacts (large / regenerable — never commit)
+data/
+tokens/
+checkpoints/
+samples/
+*.pt
+*.ckpt
+*.npy
+*.wav
+*.flac
+*.ogg
+continuation.wav
+out.wav
+
+# Logs / experiment tracking
+*.log
+runs/
+wandb/
+tensorboard/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

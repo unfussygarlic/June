@@ -1,0 +1,12 @@
+# Core (required)
+torch>=2.1
+torchaudio>=2.1
+numpy
+pyyaml
+tqdm
+soundfile          # torchaudio backend for flac/wav I/O
+
+# Optional
+# bitsandbytes     # for optimizer: adam8bit  (saves VRAM; Linux/Windows + CUDA)
+# openai-whisper   # for eval/resynth_wer.py
+# jiwer            # for eval/resynth_wer.py

@@ -1,0 +1,40 @@
+# Neural audio codec (tokenizer + vocoder) — trained from scratch.
+seed: 0
+sample_rate: 16000
+
+# --- data ---
+data_root: data            # LibriSpeech is downloaded under data/LibriSpeech/<subset>
+subset: train-clean-100
+crop_seconds: 0.8          # short crops: more diverse batches, cheaper discriminators
+num_workers: 4
+
+# --- model ---
+dim: 128                   # RVQ latent dimension
+base: 32                   # base conv channels (doubles each downsample)
+strides: [2, 4, 5, 8]      # product 320 -> 16000/320 = 50 Hz. Add a 4 for 12.5 Hz.
+codebook_size: 1024
+n_q: 8                     # residual codebooks per frame
+
+# --- optimization ---
+batch_size: 16             # drop to 8 if you OOM on 8 GB
+grad_accum: 1
+lr: 3.0e-4
+disc_lr: 3.0e-4
+optimizer: adamw           # or adam8bit (needs bitsandbytes)
+precision: bf16            # bf16 | fp16 | fp32
+max_steps: 200000
+warmup: 2000
+
+# --- loss weights ---
+lambda_mel: 15.0
+lambda_adv: 1.0
+lambda_fm: 2.0
+lambda_commit: 0.25
+mel_n_ffts: [512, 1024, 2048]
+n_mels: 64
+
+# --- logging / checkpoints ---
+log_every: 50
+sample_every: 2000         # dumps orig/recon wavs so you can listen as it trains
+ckpt_every: 2000
+ckpt_dir: checkpoints/codec

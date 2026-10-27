@@ -1,0 +1,36 @@
+# Textless speech LM (temporal + depth transformer over codec tokens).
+# n_streams: 1 = single-stream continuation (start here)
+#            2 = full-duplex two-stream dialogue (needs two-channel token data)
+seed: 0
+
+# --- tokens (must match the codec that produced them) ---
+token_dir: data/tokens/train-clean-100
+codec_ckpt: checkpoints/codec/codec_200000.pt   # tokenize.py / sample.py read arch from here
+# audio_root:  data/LibriSpeech/train-clean-100  # override only if audio lives elsewhere
+n_q: 8
+codebook_size: 1024
+frame_rate: 50
+
+# --- model ---
+n_streams: 1
+d: 512
+temporal_layers: 8
+depth_layers: 3
+heads: 8
+window_frames: 500         # 10 s at 50 Hz (375 at 12.5 Hz ~= 30 s)
+
+# --- optimization ---
+batch_size: 4
+grad_accum: 8              # effective batch 32
+lr: 3.0e-4
+optimizer: adamw           # or adam8bit
+precision: bf16
+max_steps: 200000
+warmup: 2000
+grad_clip: 1.0
+num_workers: 4
+
+# --- logging / checkpoints ---
+log_every: 50
+ckpt_every: 2000
+ckpt_dir: checkpoints/lm

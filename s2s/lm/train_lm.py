@@ -43,7 +43,8 @@ def main():
 
     model = SpeechLM(cfg.n_streams, cfg.n_q, cfg.codebook_size, cfg.d,
                      cfg.temporal_layers, cfg.depth_layers, cfg.heads,
-                     max_frames=cfg.window_frames + 8).to(device)
+                     max_frames=cfg.window_frames + 8,
+                     grad_checkpointing=cfg.get("grad_checkpointing", False)).to(device)
     print(f"{len(ds)} token files | SpeechLM {count_params(model)/1e6:.1f}M params "
           f"| streams {cfg.n_streams} | window {cfg.window_frames}")
 

@@ -41,7 +41,8 @@ def main():
     refs, hyps = [], []
     for path in files:
         wav, _ = load_audio(path, cfg.sample_rate)
-        recon, _, _ = codec(wav.unsqueeze(0).to(device))
+        with torch.no_grad():
+            recon, _, _ = codec(wav.unsqueeze(0).to(device))
         recon = recon.float().clamp(-1, 1).cpu()[0]
 
         orig_txt = asr.transcribe(wav.squeeze(0).numpy(), language="en")["text"]

@@ -17,13 +17,13 @@ from .seanet import Decoder, Encoder
 
 class NeuralCodec(nn.Module):
     def __init__(self, dim=128, base=32, strides=(2, 4, 5, 8),
-                 codebook_size=1024, n_q=8, sample_rate=16000):
+                 codebook_size=1024, n_q=8, sample_rate=16000, code_dim=8):
         super().__init__()
         self.sample_rate = sample_rate
         self.n_q = n_q
         self.encoder = Encoder(dim, base, strides)
         self.decoder = Decoder(dim, base, strides)
-        self.rvq = ResidualVQ(dim, codebook_size, n_q)
+        self.rvq = ResidualVQ(dim, codebook_size, n_q, code_dim=code_dim)
         self.total_stride = self.encoder.total_stride
 
     @property
@@ -66,7 +66,7 @@ def load_codec(ckpt_path: str, device="cpu"):
         dim=c.get("dim", 128), base=c.get("base", 32),
         strides=tuple(c.get("strides", (2, 4, 5, 8))),
         codebook_size=c.get("codebook_size", 1024), n_q=c.get("n_q", 8),
-        sample_rate=c.get("sample_rate", 16000),
+        sample_rate=c.get("sample_rate", 16000), code_dim=c.get("code_dim", 8),
     )
     codec.load_state_dict(blob["codec"])
     return codec.to(device).eval()

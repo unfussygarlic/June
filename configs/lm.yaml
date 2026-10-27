@@ -5,25 +5,26 @@ seed: 0
 
 # --- tokens (must match the codec that produced them) ---
 token_dir: data/tokens/train-clean-100
-codec_ckpt: checkpoints/codec/codec_200000.pt   # tokenize.py / sample.py read arch from here
+codec_ckpt: checkpoints/codec/codec_22000.pt    # tokenize.py / sample.py read arch from here
 # audio_root:  data/LibriSpeech/train-clean-100  # override only if audio lives elsewhere
 n_q: 8
 codebook_size: 1024
 frame_rate: 50
 
-# --- model ---
+# --- model (d=1024 / ~220M; needs grad_checkpointing + adam8bit on 8 GB) ---
 n_streams: 1
-d: 512
-temporal_layers: 8
-depth_layers: 3
-heads: 8
+d: 1024
+temporal_layers: 12
+depth_layers: 4
+heads: 16                  # must divide d (1024 / 16 = 64)
 window_frames: 500         # 10 s at 50 Hz (375 at 12.5 Hz ~= 30 s)
+grad_checkpointing: true   # recompute activations in backward -> big memory saving
 
 # --- optimization ---
-batch_size: 4
-grad_accum: 8              # effective batch 32
+batch_size: 8
+grad_accum: 4             # effective batch 32
 lr: 3.0e-4
-optimizer: adamw           # or adam8bit
+optimizer: adam8bit        # needs: pip install bitsandbytes  (falls back to adamw)
 precision: bf16
 max_steps: 200000
 warmup: 2000

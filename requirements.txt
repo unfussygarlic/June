@@ -4,7 +4,8 @@ torchaudio>=2.1
 numpy
 pyyaml
 tqdm
-soundfile          # torchaudio backend for flac/wav I/O
+soundfile          # robust flac/wav I/O (no torchcodec dependency)
+matplotlib         # spectrogram PNGs during training (viz.py no-ops without it)
 
 # Optional
 # bitsandbytes     # for optimizer: adam8bit  (saves VRAM; Linux/Windows + CUDA)

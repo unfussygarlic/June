@@ -21,8 +21,8 @@ from torch.utils.data import DataLoader
 from ..audio_io import save_audio
 from ..data.audio_dataset import AudioCropDataset
 from ..utils import (AverageMeter, amp_dtype, build_optimizer, count_params,
-                     get_device, load_checkpoint, load_config, save_checkpoint,
-                     set_seed)
+                     get_device, load_checkpoint, load_config,
+                     rotate_checkpoints, save_checkpoint, set_seed)
 from ..viz import save_spectrogram_compare
 from .discriminators import Discriminator
 from .losses import (MultiResMelLoss, discriminator_loss, feature_matching_loss,
@@ -157,6 +157,7 @@ def main():
             path = os.path.join(cfg.ckpt_dir, f"codec_{step}.pt")
             save_checkpoint(path, step, codec=codec, disc=disc, opt_g=opt_g,
                             opt_d=opt_d, config=dict(cfg))
+            rotate_checkpoints(cfg.ckpt_dir, "codec", cfg.get("keep_last", 2))
             print("saved", path)
 
     jsonl.close()

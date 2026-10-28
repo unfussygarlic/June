@@ -88,6 +88,27 @@ def load_checkpoint(path: str, map_location="cpu", **modules):
     return blob
 
 
+def rotate_checkpoints(ckpt_dir: str, prefix: str, keep_last: int) -> None:
+    """Delete all but the newest `keep_last` numbered checkpoints <prefix>_<step>.pt.
+    Only files whose suffix is an integer step are considered, so named checkpoints
+    like <prefix>_best.pt are never rotated away. keep_last <= 0 disables rotation."""
+    if keep_last is None or keep_last <= 0:
+        return
+    numbered = []
+    for f in os.listdir(ckpt_dir):
+        if f.startswith(prefix + "_") and f.endswith(".pt"):
+            try:
+                numbered.append((int(f[len(prefix) + 1:-3]), f))
+            except ValueError:
+                continue                       # skip lm_best.pt etc.
+    numbered.sort()
+    for _, f in numbered[:-keep_last]:
+        try:
+            os.remove(os.path.join(ckpt_dir, f))
+        except OSError:
+            pass
+
+
 @dataclass
 class AverageMeter:
     total: float = 0.0
@@ -121,3 +142,13 @@ def build_optimizer(params, lr: float, kind: str = "adamw", weight_decay: float 
 def lr_lambda(step: int, warmup: int) -> float:
     """Linear warmup then constant. Simple and robust for from-scratch training."""
     return min(1.0, (step + 1) / max(warmup, 1))
+
+
+def lr_lambda_cosine(step: int, warmup: int, max_steps: int, min_ratio: float = 0.1) -> float:
+    """Linear warmup, then cosine decay from 1.0 down to `min_ratio`. Decaying the LR
+    late is the main guard against the loss blowing up after a long stable run."""
+    import math
+    if step < warmup:
+        return (step + 1) / max(warmup, 1)
+    prog = min(1.0, (step - warmup) / max(1, max_steps - warmup))
+    return min_ratio + 0.5 * (1 - min_ratio) * (1 + math.cos(math.pi * prog))

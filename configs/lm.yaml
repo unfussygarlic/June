@@ -13,25 +13,43 @@ frame_rate: 50
 
 # --- model (d=1024 / ~220M; needs grad_checkpointing + adam8bit on 8 GB) ---
 n_streams: 1
-d: 1024
+d: 768
 temporal_layers: 12
 depth_layers: 4
 heads: 16                  # must divide d (1024 / 16 = 64)
 window_frames: 500         # 10 s at 50 Hz (375 at 12.5 Hz ~= 30 s)
-grad_checkpointing: true   # recompute activations in backward -> big memory saving
+grad_checkpointing: false   # recompute activations in backward -> big memory saving
 
 # --- optimization ---
-batch_size: 8
-grad_accum: 4             # effective batch 32
-lr: 3.0e-4
+batch_size: 4
+grad_accum: 8             # effective batch 32
+lr: 2.0e-4 
+lr_schedule: cosine        # warmup then cosine decay -> main guard against late blow-up
+lr_min_ratio: 0.1          # decay LR to 10% of peak by max_steps
 optimizer: adam8bit        # needs: pip install bitsandbytes  (falls back to adamw)
 precision: bf16
 max_steps: 200000
 warmup: 2000
 grad_clip: 1.0
 num_workers: 4
+# resume_from: checkpoints/lm/lm_best.pt   # restart from a known-good checkpoint
 
 # --- logging / checkpoints ---
 log_every: 50
 ckpt_every: 2000
+keep_last: 2               # keep only the newest N numbered checkpoints (lm_best.pt is kept)
 ckpt_dir: checkpoints/lm
+
+
+# --- validation + samples (run at every checkpoint) ---
+val_frac: 0.01             # fraction of token files held out for validation
+val_batches: 20            # how many val batches to average per check
+audio_samples: true        # generate + decode a continuation each checkpoint
+sample_prompt_frames: 100  # frames of the held-out clip used as the prompt
+# sample_gen_frames: 150   # frames to generate (default ~3 s at the codec frame rate)
+# generation knobs for the checkpoint samples (low temp collapses to silence/drone):
+gen_temperature: 1.0
+gen_top_k: 250
+gen_top_p: 0.95
+gen_repetition_penalty: 1.3
+gen_rep_window: 50

@@ -46,14 +46,34 @@ class Stack(nn.Module):
         return x
 
 
-def sample_logits(logits: torch.Tensor, temperature: float = 0.8, top_k: int = 200):
-    """logits: (B, card) -> sampled token (B,)."""
+def sample_logits(logits: torch.Tensor, temperature: float = 0.8, top_k: int = 200,
+                  top_p: float = 0.0, repetition_penalty: float = 1.0,
+                  recent: torch.Tensor | None = None):
+    """logits: (B, card) -> sampled token (B,).
+
+    temperature         : <=0 is greedy argmax.
+    top_k               : keep only the k highest-logit tokens (0 = off).
+    top_p (nucleus)     : keep the smallest set whose cumulative prob >= top_p (0 = off).
+    repetition_penalty  : >1 divides the logits of tokens in `recent` (per batch row),
+                          discouraging the model from repeating itself / droning on silence.
+    recent              : (B, M) recently emitted token ids for this head, or None.
+    """
+    if repetition_penalty and repetition_penalty != 1.0 and recent is not None:
+        for b in range(logits.size(0)):
+            ids = recent[b].unique()
+            logits[b, ids] = logits[b, ids] / repetition_penalty
     if temperature <= 0:
         return logits.argmax(-1)
     logits = logits / temperature
     if top_k:
         v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
         logits = logits.masked_fill(logits < v[:, [-1]], float("-inf"))
+    if top_p and 0 < top_p < 1:
+        s, idx = torch.sort(logits, descending=True, dim=-1)
+        cum = torch.softmax(s, dim=-1).cumsum(-1)
+        remove = cum - torch.softmax(s, dim=-1) >= top_p     # keep tokens up to the mass
+        s = s.masked_fill(remove, float("-inf"))
+        logits = torch.full_like(logits, float("-inf")).scatter(-1, idx, s)
     probs = F.softmax(logits, dim=-1)
     return torch.multinomial(probs, 1).squeeze(-1)
 
@@ -101,17 +121,39 @@ class SpeechLM(nn.Module):
         return logits.view(B, T, self.n_q, self.card)
 
     @torch.no_grad()
-    def depth_sample(self, h_t: torch.Tensor, temperature=0.8, top_k=200) -> torch.Tensor:
-        """Sample one frame's K agent codebooks given context h_t: (B, d) -> (B, n_q)."""
+    def depth_sample(self, h_t: torch.Tensor, temperature=0.8, top_k=200, top_p=0.0,
+                     repetition_penalty=1.0, recent=None) -> torch.Tensor:
+        """Sample one frame's K agent codebooks given context h_t: (B, d) -> (B, n_q).
+
+        recent: (B, n_q, M) recently emitted tokens per codebook, for the repetition
+        penalty (None disables it)."""
         seq = h_t.unsqueeze(1)                                    # (B, 1, d)
         codes = []
         for k in range(self.n_q):
             x = seq + self.depth_pos[:, :seq.size(1)]
             hk = self.depth(x)[:, -1]                             # (B, d)
-            tok = sample_logits(self.out[k](hk), temperature, top_k)   # (B,)
+            rec_k = recent[:, k] if recent is not None else None
+            tok = sample_logits(self.out[k](hk), temperature, top_k, top_p,
+                                repetition_penalty, rec_k)        # (B,)
             codes.append(tok)
             seq = torch.cat([seq, self.depth_in(tok).unsqueeze(1)], dim=1)
         return torch.stack(codes, dim=-1)                        # (B, n_q)
+
+
+def load_speechlm(ckpt_path: str, device="cpu"):
+    """Rebuild a SpeechLM from a checkpoint using the ARCHITECTURE stored in it,
+    so dims always match the trained weights regardless of the current YAML."""
+    blob = torch.load(ckpt_path, map_location=device, weights_only=False)
+    c = blob.get("config", {})
+    model = SpeechLM(
+        n_streams=c.get("n_streams", 1), n_q=c.get("n_q", 8),
+        codebook_size=c.get("codebook_size", 1024), d=c.get("d", 512),
+        temporal_layers=c.get("temporal_layers", 8),
+        depth_layers=c.get("depth_layers", 3), heads=c.get("heads", 8),
+        max_frames=c.get("window_frames", 500) + 8, grad_checkpointing=False,
+    )
+    model.load_state_dict(blob["model"])
+    return model.to(device).eval(), c
 
 
 def loss_fn(logits: torch.Tensor, target: torch.Tensor, pad: int) -> torch.Tensor:

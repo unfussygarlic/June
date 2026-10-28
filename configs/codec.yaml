@@ -38,4 +38,5 @@ n_mels: 64
 log_every: 50
 sample_every: 2000         # dumps orig/recon wavs so you can listen as it trains
 ckpt_every: 2000
+keep_last: 2               # keep only the newest N checkpoints (0 = keep all)
 ckpt_dir: checkpoints/codec

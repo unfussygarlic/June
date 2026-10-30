@@ -15,7 +15,7 @@ env/
 .python-version
 
 # Data & training artifacts (large / regenerable — never commit)
-data/
+/data/
 tokens/
 checkpoints/
 samples/
